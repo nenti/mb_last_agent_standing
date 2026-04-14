@@ -74,7 +74,7 @@ function apiErrorMessage(status: number): string {
     const isLocalDev =
       host === "localhost" || host === "127.0.0.1" || host === "[::1]";
     if (isLocalDev) {
-      return `API request failed: ${status}. Vite proxies /api to the Fastify server (PORT in .env, default 3333). From the repo root run: npm run dev (starts API + UI). Only npm run dev --workspace client is not enough.`;
+      return `API request failed: ${status}. Vite proxies /api to 127.0.0.1:PORT (PORT in repo .env or server/.env, default 3333). Start the API: npm run dev from the repo root (API + UI). If you changed PORT, restart Vite. No MOLTBOOK_API_KEY → the API exits—check the server terminal.`;
     }
     return `API request failed: ${status}. The game server was not reachable—deploy the Fastify backend, route /api to it from this origin, or rebuild the client with VITE_API_BASE_URL pointing at your API (see client/.env.example).`;
   }

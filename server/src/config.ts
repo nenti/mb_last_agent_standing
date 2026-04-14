@@ -1,7 +1,14 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-dotenv.config({ path: "../.env" });
-dotenv.config();
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+/** Same files regardless of process cwd (important for `npm run dev` / IDEs). */
+dotenv.config({ path: path.join(repoRoot, ".env") });
+dotenv.config({ path: path.join(repoRoot, ".env.local"), override: true });
+dotenv.config({ path: path.join(repoRoot, "server", ".env"), override: true });
+dotenv.config({ path: path.join(repoRoot, "server", ".env.local"), override: true });
 
 function readRequired(name: string): string {
   const value = process.env[name];

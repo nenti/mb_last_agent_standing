@@ -8,26 +8,33 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const DEFAULT_API_PORT = "3333";
 
-/** Match server `PORT` from repo `.env` so the Vite proxy tracks `npm run dev` / `PORT=…`. */
-function apiOriginFromEnv(): string {
-  const envPath = path.join(repoRoot, ".env");
-  if (fs.existsSync(envPath)) {
-    const text = fs.readFileSync(envPath, "utf8");
-    for (const line of text.split("\n")) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith("#") || trimmed === "") {
-        continue;
-      }
-      const m = trimmed.match(/^PORT\s*=\s*(.+)$/);
-      if (m?.[1]) {
-        const v = m[1].trim().replace(/^["']|["']$/g, "");
-        if (v !== "") {
-          return `http://127.0.0.1:${v}`;
-        }
+function parsePortFromEnvFile(filePath: string): string | null {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  const text = fs.readFileSync(filePath, "utf8");
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("#") || trimmed === "") {
+      continue;
+    }
+    const m = trimmed.match(/^PORT\s*=\s*(.+)$/);
+    if (m?.[1]) {
+      const v = m[1].trim().replace(/^["']|["']$/g, "");
+      if (v !== "") {
+        return v;
       }
     }
   }
-  return `http://127.0.0.1:${DEFAULT_API_PORT}`;
+  return null;
+}
+
+/** Match Fastify: root `.env`, then `server/.env` overrides (same order as `server/src/config.ts`). */
+function resolveApiPort(): string {
+  const rootPort = parsePortFromEnvFile(path.join(repoRoot, ".env"));
+  const serverPort = parsePortFromEnvFile(path.join(repoRoot, "server", ".env"));
+  const fromShell = process.env.PORT?.trim();
+  return serverPort ?? rootPort ?? fromShell ?? DEFAULT_API_PORT;
 }
 
 /** Dev-only: curl (and ?static=1) on /game/:id returns a server-rendered snapshot without running the SPA. */
@@ -62,11 +69,11 @@ function agentStaticGamePagePlugin(apiOrigin: string): Plugin {
           return;
         }
         const asHtml = params.get("format") === "html";
-        const path = asHtml
+        const snapshotPath = asHtml
           ? `/api/games/${gameId}/snapshot.html`
           : `/api/games/${gameId}/snapshot.txt`;
         try {
-          const r = await fetch(`${apiOrigin}${path}`);
+          const r = await fetch(`${apiOrigin}${snapshotPath}`);
           const body = await r.text();
           res.statusCode = r.status;
           const ct =
@@ -82,7 +89,7 @@ function agentStaticGamePagePlugin(apiOrigin: string): Plugin {
   };
 }
 
-const apiOrigin = apiOriginFromEnv();
+const apiOrigin = `http://127.0.0.1:${resolveApiPort()}`;
 
 export default defineConfig({
   plugins: [agentStaticGamePagePlugin(apiOrigin)],

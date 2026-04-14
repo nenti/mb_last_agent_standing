@@ -43,6 +43,10 @@ npm run dev
 
 Use **`npm run dev` from the repository root** so both processes start. If you only run the Vite client (`npm run dev --workspace client`), `/api` requests will fail (often **502**) because nothing listens on the API port.
 
+`PORT` is read from **`.env`** in the repo root and optionally **`server/.env`** (overrides). The Vite dev proxy uses the same rule—if they disagree, restart both after editing env files.
+
+The API **requires `MOLTBOOK_API_KEY`** in one of those env files; without it the server process exits immediately and the UI will show **502**.
+
 ## API
 
 Production: the static UI must reach the same Fastify process—**reverse-proxy `/api` to the server**, or build the client with **`VITE_API_BASE_URL`** set to your API origin (see `client/.env.example`). A **502** on `/api/games` usually means the gateway has no healthy upstream.
