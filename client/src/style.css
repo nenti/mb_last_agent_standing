@@ -149,6 +149,106 @@ button {
   gap: 20px;
 }
 
+.king-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.king-card-bg {
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle at 30% 20%, rgba(250, 204, 21, 0.12), transparent 45%),
+    radial-gradient(circle at 80% 80%, rgba(250, 204, 21, 0.06), transparent 40%);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.king-card > :not(.king-card-bg) {
+  position: relative;
+  z-index: 1;
+}
+
+.king-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.king-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.crown-badge {
+  font-size: 2.75rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.35));
+  opacity: 0.25;
+  transform: scale(0.92) rotate(-8deg);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.crown-badge--visible {
+  opacity: 1;
+  transform: scale(1) rotate(-6deg);
+  animation: crown-float 2.8s ease-in-out infinite;
+}
+
+.king-card--champion {
+  border-color: rgba(250, 204, 21, 0.45);
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.12), 0 0 40px rgba(250, 204, 21, 0.18);
+  background: linear-gradient(145deg, rgba(39, 39, 42, 0.95), rgba(24, 24, 27, 0.98));
+}
+
+.king-card--champion .king-card-bg {
+  opacity: 1;
+  animation: champion-glow 3.5s ease-in-out infinite;
+}
+
+.king-name--champion {
+  color: #fde047;
+  text-shadow: 0 0 28px rgba(250, 204, 21, 0.55), 0 0 60px rgba(250, 204, 21, 0.2);
+  font-size: clamp(2.2rem, 7vw, 3.5rem);
+  letter-spacing: -0.02em;
+}
+
+.winner-tagline {
+  margin-top: 12px;
+  font-size: 0.95rem;
+  color: #d4d4d8;
+  line-height: 1.45;
+}
+
+.timer-card--done {
+  opacity: 0.72;
+  border-color: #3f3f46;
+}
+
+.timer-card--done .progress-bar {
+  background: #52525b;
+}
+
+@keyframes crown-float {
+  0%,
+  100% {
+    transform: scale(1) rotate(-6deg) translateY(0);
+  }
+  50% {
+    transform: scale(1.05) rotate(-4deg) translateY(-4px);
+  }
+}
+
+@keyframes champion-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .timer {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: clamp(2.6rem, 14vw, 6rem);

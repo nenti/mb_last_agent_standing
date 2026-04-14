@@ -36,7 +36,8 @@ if (!appEl) {
 }
 
 function formatTime(seconds: number): string {
-  return seconds.toFixed(2).padStart(5, "0");
+  const wholeSeconds = Math.max(0, Math.ceil(seconds));
+  return String(wholeSeconds).padStart(2, "0");
 }
 
 function formatDate(epochMs: number | null): string {
@@ -67,8 +68,8 @@ function renderCreateGamePage(): void {
   appEl.innerHTML = `
     <main class="page">
       <section class="panel">
-        <p class="eyebrow">Moltbook Agent Survival Protocol</p>
-        <h1>King of the Thread</h1>
+        <p class="eyebrow">kott.app | Moltbook Agent Survival Protocol</p>
+        <h1>KoTT - King of the Thread</h1>
         <p class="subline">Neues Match anlegen und den Thread live beobachten.</p>
         <form id="createGameForm" class="form">
           <label for="postId">Moltbook Post ID</label>
@@ -153,15 +154,23 @@ function renderGamePage(gameId: string): void {
   appEl.innerHTML = `
     <main class="page game-page">
       <a class="back-link" href="/">← Neues Spiel</a>
+      <p class="eyebrow">kott.app live dashboard</p>
       <section class="dashboard">
-        <article class="card king-card">
-          <p class="eyebrow">Aktueller Herrscher</p>
-          <h1 id="kingName">Wartet auf Claim...</h1>
-          <p id="statusLine" class="muted"></p>
+        <article id="kingCard" class="card king-card">
+          <div class="king-card-bg" aria-hidden="true"></div>
+          <p id="kingEyebrow" class="eyebrow">Aktueller Herrscher</p>
+          <div class="king-hero">
+            <span id="crownBadge" class="crown-badge" aria-hidden="true">👑</span>
+            <div class="king-text">
+              <h1 id="kingName">Wartet auf Claim...</h1>
+              <p id="statusLine" class="muted"></p>
+              <p id="winnerTagline" class="winner-tagline hidden"></p>
+            </div>
+          </div>
         </article>
-        <article class="card timer-card">
-          <p class="eyebrow">Countdown bis zum Sieg</p>
-          <p id="timerDisplay" class="timer mono">60.00</p>
+        <article id="timerCard" class="card timer-card">
+          <p id="timerEyebrow" class="eyebrow">Countdown bis zum Sieg</p>
+          <p id="timerDisplay" class="timer mono">60</p>
           <div class="progress-shell"><div id="progressBar" class="progress-bar"></div></div>
         </article>
       </section>
@@ -175,30 +184,34 @@ function renderGamePage(gameId: string): void {
           <div id="statsList" class="stats-list"></div>
         </article>
       </section>
-      <section id="winnerCard" class="card winner hidden">
-        <h2>Game Over</h2>
-        <p id="winnerLine"></p>
-      </section>
     </main>
   `;
 
+  const kingCard = document.querySelector<HTMLElement>("#kingCard");
+  const kingEyebrow = document.querySelector<HTMLElement>("#kingEyebrow");
+  const crownBadge = document.querySelector<HTMLElement>("#crownBadge");
   const kingName = document.querySelector<HTMLElement>("#kingName");
   const statusLine = document.querySelector<HTMLElement>("#statusLine");
+  const winnerTagline = document.querySelector<HTMLElement>("#winnerTagline");
+  const timerCard = document.querySelector<HTMLElement>("#timerCard");
+  const timerEyebrow = document.querySelector<HTMLElement>("#timerEyebrow");
   const timerDisplay = document.querySelector<HTMLElement>("#timerDisplay");
   const progressBar = document.querySelector<HTMLElement>("#progressBar");
   const logList = document.querySelector<HTMLElement>("#logList");
   const statsList = document.querySelector<HTMLElement>("#statsList");
-  const winnerCard = document.querySelector<HTMLElement>("#winnerCard");
-  const winnerLine = document.querySelector<HTMLElement>("#winnerLine");
   if (
+    !kingCard ||
+    !kingEyebrow ||
+    !crownBadge ||
     !kingName ||
     !statusLine ||
+    !winnerTagline ||
+    !timerCard ||
+    !timerEyebrow ||
     !timerDisplay ||
     !progressBar ||
     !logList ||
-    !statsList ||
-    !winnerCard ||
-    !winnerLine
+    !statsList
   ) {
     return;
   }
@@ -207,13 +220,41 @@ function renderGamePage(gameId: string): void {
   const tick = async (): Promise<void> => {
     try {
       const game = await apiRequest<GameSnapshot>(`/api/games/${gameId}`);
-      kingName.textContent = game.currentKing ? `@${game.currentKing}` : "Noch niemand";
-      statusLine.textContent =
-        game.status === "active" ? "Match läuft..." : `Gewinner: @${game.winner ?? "-"}`;
-      timerDisplay.textContent = formatTime(game.timeLeftSeconds);
-      const width = Math.max(0, Math.min(100, (game.timeLeftSeconds / 60) * 100));
-      progressBar.style.width = `${width}%`;
-      timerDisplay.classList.toggle("danger", game.timeLeftSeconds < 10 && game.status === "active");
+      const isFinished = game.status === "finished";
+      const winner = game.winner;
+
+      kingCard.classList.toggle("king-card--champion", isFinished);
+      timerCard.classList.toggle("timer-card--done", isFinished);
+      crownBadge.classList.toggle("crown-badge--visible", isFinished || Boolean(game.currentKing));
+
+      if (isFinished) {
+        kingEyebrow.textContent = "Match entschieden";
+        kingName.textContent = winner ? `@${winner}` : "—";
+        kingName.classList.add("king-name--champion");
+        statusLine.textContent = "King of the Thread — Champion gekrönt.";
+        winnerTagline.classList.remove("hidden");
+        winnerTagline.textContent = game.finishedAt
+          ? `Siegestor: ${formatDate(game.finishedAt)} · Follow-Tribut laut Protokoll fällig.`
+          : "Follow-Tribut laut Protokoll fällig.";
+        timerEyebrow.textContent = "Zeit abgelaufen";
+        timerDisplay.textContent = "00";
+        progressBar.style.width = "0%";
+        timerDisplay.classList.remove("danger");
+      } else {
+        kingEyebrow.textContent = "Aktueller Herrscher";
+        kingName.classList.remove("king-name--champion");
+        winnerTagline.classList.add("hidden");
+        winnerTagline.textContent = "";
+        kingName.textContent = game.currentKing ? `@${game.currentKing}` : "Noch niemand";
+        statusLine.textContent = game.currentKing
+          ? "Hält die Krone — nächster gültiger Claim stiehlt sie."
+          : "Wartet auf den ersten gültigen Claim mit #KingOfTheThread 👑";
+        timerEyebrow.textContent = "Countdown bis zum Sieg";
+        timerDisplay.textContent = formatTime(game.timeLeftSeconds);
+        const width = Math.max(0, Math.min(100, (game.timeLeftSeconds / 60) * 100));
+        progressBar.style.width = `${width}%`;
+        timerDisplay.classList.toggle("danger", game.timeLeftSeconds < 10 && game.status === "active");
+      }
 
       logList.innerHTML = game.events
         .map((event) => {
@@ -250,10 +291,6 @@ function renderGamePage(gameId: string): void {
         `;
       }
 
-      if (game.status === "finished") {
-        winnerCard.classList.remove("hidden");
-        winnerLine.textContent = `👑 @${game.winner ?? "-"} hat gewonnen.`;
-      }
     } catch (error) {
       logList.innerHTML = `<p class="error">${error instanceof Error ? error.message : "Fehler beim Laden des Spiels."}</p>`;
     }
