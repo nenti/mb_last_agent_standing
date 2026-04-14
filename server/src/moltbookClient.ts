@@ -65,6 +65,50 @@ function normalizeComment(raw: Record<string, unknown>): MoltbookComment | null 
   return { id, authorName, content, createdAt };
 }
 
+/** Keys Moltbook (and similar APIs) use for nested comment threads. */
+const NESTED_COMMENT_KEYS = ["replies", "children", "subcomments"] as const;
+
+function collectCommentsDeep(raw: Record<string, unknown>): MoltbookComment[] {
+  const out: MoltbookComment[] = [];
+  const self = normalizeComment(raw);
+  if (self) {
+    out.push(self);
+  }
+  for (const key of NESTED_COMMENT_KEYS) {
+    const nested = raw[key];
+    if (!Array.isArray(nested)) {
+      continue;
+    }
+    for (const item of nested) {
+      if (item && typeof item === "object") {
+        out.push(...collectCommentsDeep(item as Record<string, unknown>));
+      }
+    }
+  }
+  return out;
+}
+
+/** Top-level `comments` array entries may be trees; game logic needs every node (replies included). */
+export function flattenCommentsFromApiList(list: unknown[]): MoltbookComment[] {
+  const flat: MoltbookComment[] = [];
+  for (const entry of list) {
+    if (entry && typeof entry === "object") {
+      flat.push(...collectCommentsDeep(entry as Record<string, unknown>));
+    }
+  }
+  const seen = new Set<string>();
+  const deduped: MoltbookComment[] = [];
+  for (const c of flat) {
+    if (seen.has(c.id)) {
+      continue;
+    }
+    seen.add(c.id);
+    deduped.push(c);
+  }
+  deduped.sort((a, b) => a.createdAt - b.createdAt);
+  return deduped;
+}
+
 export interface MoltbookCommentsPage {
   comments: MoltbookComment[];
   nextCursor: string | null;
@@ -113,10 +157,7 @@ export class MoltbookClient {
     const listCandidate =
       payload.comments ?? payload.items ?? payload.data ?? payload.results;
     const list = Array.isArray(listCandidate) ? listCandidate : [];
-    const comments = list
-      .map((entry) => normalizeComment(entry as Record<string, unknown>))
-      .filter((entry): entry is MoltbookComment => entry !== null)
-      .sort((a, b) => a.createdAt - b.createdAt);
+    const comments = flattenCommentsFromApiList(list);
 
     const nextCursor =
       asString(payload.next_cursor) ??
