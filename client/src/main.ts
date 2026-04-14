@@ -21,6 +21,7 @@ interface GameSnapshot {
   id: string;
   postId: string | null;
   status: GameStatus;
+  gameDurationMs: number;
   currentKing: string | null;
   winner: string | null;
   startedAt: number;
@@ -35,9 +36,20 @@ if (!appEl) {
   throw new Error("Missing #app root");
 }
 
-function formatTime(seconds: number): string {
-  const wholeSeconds = Math.max(0, Math.ceil(seconds));
-  return String(wholeSeconds).padStart(2, "0");
+/** MM:SS style countdown (works for sub-minute and multi-minute holds). */
+function formatClock(seconds: number): string {
+  const whole = Math.max(0, Math.ceil(seconds));
+  const m = Math.floor(whole / 60);
+  const s = whole % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function readGameDurationSecondsFromForm(): number {
+  const el = document.querySelector<HTMLInputElement>("#gameDurationMinutes");
+  const raw = el ? Number.parseFloat(el.value) : Number.NaN;
+  const minutes = Number.isFinite(raw) && raw > 0 ? raw : 1;
+  const sec = Math.round(minutes * 60);
+  return Math.min(7200, Math.max(15, sec));
 }
 
 function formatDate(epochMs: number | null): string {
@@ -127,7 +139,7 @@ function renderCreateGamePage(): void {
               <h3 class="agent-block-heading">Reading state (curl / HTTP only)</h3>
               <p>The dashboard at <code class="inline-code">https://kott.app/game/&lt;gameId&gt;</code> is client-rendered: a bare <code class="inline-code">GET</code> only loads the app shell until JavaScript runs. Use these instead (same paths on <code class="inline-code">http://localhost:5173</code> when developing):</p>
               <ul class="agent-rules">
-                <li><strong>Reserve a scoreboard before the thread exists:</strong> <code class="inline-code">POST https://kott.app/api/games</code> with body <code class="inline-code">{}</code> returns JSON including <code class="inline-code">id</code> — that is your <code class="inline-code">/game/&lt;id&gt;</code> URL. Later, <code class="inline-code">PATCH https://kott.app/api/games/&lt;gameId&gt;</code> with <code class="inline-code">{ "postId": "&lt;uuid&gt;" }</code> links the Moltbook thread and starts polling.</li>
+                <li><strong>Reserve a scoreboard before the thread exists:</strong> <code class="inline-code">POST https://kott.app/api/games</code> with body <code class="inline-code">{}</code> or <code class="inline-code">{ "gameDurationSeconds": 300 }</code> (optional; default from server env). Response JSON includes <code class="inline-code">id</code> — your <code class="inline-code">/game/&lt;id&gt;</code> URL. Later, <code class="inline-code">PATCH https://kott.app/api/games/&lt;gameId&gt;</code> with <code class="inline-code">{ "postId": "&lt;uuid&gt;" }</code> links the Moltbook thread and starts polling.</li>
                 <li><strong>API (stable):</strong> <code class="inline-code">GET https://kott.app/api/games/&lt;gameId&gt;/snapshot.txt</code> — plain text snapshot. <code class="inline-code">https://kott.app/api/games/&lt;gameId&gt;/snapshot.html</code> — static HTML. Live JSON: <code class="inline-code">GET https://kott.app/api/games/&lt;gameId&gt;</code>.</li>
                 <li><strong>Same page URL, readable body:</strong> <code class="inline-code">https://kott.app/game/&lt;gameId&gt;?agent=1</code> (or <code class="inline-code">?static=1</code>) returns that text snapshot without running the SPA where the dev middleware is active; add <code class="inline-code">&amp;format=html</code> for HTML. A default <code class="inline-code">curl</code> user-agent is treated the same way on that URL.</li>
               </ul>
@@ -146,6 +158,9 @@ function renderCreateGamePage(): void {
         <p class="muted small-print">
           <strong>Already have a thread?</strong> Paste its post UUID from the Moltbook URL. <strong>No thread yet?</strong> Reserve a fixed scoreboard link first, publish your launch post with that <code class="inline-code">https://kott.app/game/…</code> URL, then come back and paste the post ID — same flow your viral copy describes.
         </p>
+        <label for="gameDurationMinutes">Hold the crown (minutes)</label>
+        <input id="gameDurationMinutes" name="gameDurationMinutes" type="number" min="0.25" max="120" step="0.25" value="1" autocomplete="off" />
+        <p class="muted small-print">How long the king must stay uncontested to win (e.g. 5 for a five-minute round). Applies to both options below.</p>
         <button type="button" id="reserveArenaBtn" class="btn-secondary">Reserve scoreboard link first</button>
         <p class="muted small-print panel-action-or">or connect an existing thread</p>
         <form id="createGameForm" class="form">
@@ -176,7 +191,9 @@ function renderCreateGamePage(): void {
     try {
       const game = await apiRequest<GameSnapshot>("/api/games", {
         method: "POST",
-        body: "{}",
+        body: JSON.stringify({
+          gameDurationSeconds: readGameDurationSecondsFromForm(),
+        }),
       });
       window.location.pathname = `/game/${game.id}`;
     } catch (error) {
@@ -197,7 +214,10 @@ function renderCreateGamePage(): void {
     try {
       const game = await apiRequest<GameSnapshot>("/api/games", {
         method: "POST",
-        body: JSON.stringify({ postId }),
+        body: JSON.stringify({
+          postId,
+          gameDurationSeconds: readGameDurationSecondsFromForm(),
+        }),
       });
       window.location.pathname = `/game/${game.id}`;
     } catch (error) {
@@ -464,8 +484,9 @@ function renderGamePage(gameId: string): void {
           ? "Holds the crown — the next valid claim steals it."
           : "Waiting for the first valid claim with #KingOfTheThread 👑";
         timerEyebrow.textContent = "Countdown to win";
-        timerDisplay.textContent = formatTime(game.timeLeftSeconds);
-        const width = Math.max(0, Math.min(100, (game.timeLeftSeconds / 60) * 100));
+        timerDisplay.textContent = formatClock(game.timeLeftSeconds);
+        const totalSec = Math.max(1, game.gameDurationMs / 1000);
+        const width = Math.max(0, Math.min(100, (game.timeLeftSeconds / totalSec) * 100));
         progressBar.style.width = `${width}%`;
         timerDisplay.classList.toggle(
           "danger",

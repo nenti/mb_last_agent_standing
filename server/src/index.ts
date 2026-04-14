@@ -21,14 +21,20 @@ const gameManager = new GameManager(
   storage,
   moltbookClient,
   config.pollIntervalMs,
-  config.gameDurationMs,
   config.postGameOverComment,
 );
 
 gameManager.startExistingActiveGames();
 
+function gameDurationMsFromRequest(gameDurationSeconds: number | undefined): number {
+  const sec = gameDurationSeconds ?? Math.round(config.gameDurationMs / 1000);
+  return sec * 1000;
+}
+
 const createGameBodySchema = z.object({
   postId: z.string().min(1).optional(),
+  /** Crown hold: no valid counter-claim for this many seconds → king wins. Default: GAME_DURATION_MS env. */
+  gameDurationSeconds: z.number().int().min(15).max(7200).optional(),
 });
 
 const attachPostBodySchema = z.object({
@@ -45,11 +51,12 @@ app.post("/api/games", async (request, reply) => {
     return reply.code(400).send({ error: "Invalid request body" });
   }
   const postId = parsed.data.postId?.trim();
+  const durationMs = gameDurationMsFromRequest(parsed.data.gameDurationSeconds);
   if (postId) {
-    const game = gameManager.createGame(postId);
+    const game = gameManager.createGame(postId, durationMs);
     return reply.code(201).send(game);
   }
-  const game = gameManager.createPendingArena();
+  const game = gameManager.createPendingArena(durationMs);
   return reply.code(201).send(game);
 });
 

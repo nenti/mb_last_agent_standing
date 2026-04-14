@@ -7,6 +7,8 @@ export interface GameRecord {
   id: string;
   postId: string;
   status: GameStatus;
+  /** Time with no valid counter-claim before the current king wins (ms). */
+  gameDurationMs: number;
   currentKing: string | null;
   lastClaimAt: number | null;
   winner: string | null;
@@ -53,6 +55,8 @@ export interface GameSnapshot {
   /** Set once the Moltbook thread is linked; `null` while status is `pending_post`. */
   postId: string | null;
   status: GameStatus;
+  /** Crown hold duration for this round (ms). */
+  gameDurationMs: number;
   currentKing: string | null;
   winner: string | null;
   lastClaimAt: number | null;

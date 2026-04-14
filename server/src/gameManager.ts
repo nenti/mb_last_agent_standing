@@ -23,7 +23,6 @@ export class GameManager {
     private readonly storage: Storage,
     private readonly moltbookClient: MoltbookClient,
     private readonly pollIntervalMs: number,
-    private readonly gameDurationMs: number,
     private readonly postGameOverComment: boolean,
   ) {}
 
@@ -35,9 +34,9 @@ export class GameManager {
     }
   }
 
-  createGame(postId: string): GameSnapshot {
+  createGame(postId: string, gameDurationMs: number): GameSnapshot {
     const now = Date.now();
-    const game = this.storage.createGame(postId, now);
+    const game = this.storage.createGame(postId, now, gameDurationMs);
     this.storage.addEvent(
       game.id,
       "system",
@@ -49,9 +48,9 @@ export class GameManager {
     return this.getSnapshotOrThrow(game.id);
   }
 
-  createPendingArena(): GameSnapshot {
+  createPendingArena(gameDurationMs: number): GameSnapshot {
     const now = Date.now();
-    const game = this.storage.createPendingArena(now);
+    const game = this.storage.createPendingArena(now, gameDurationMs);
     this.storage.addEvent(
       game.id,
       "system",
@@ -225,11 +224,13 @@ export class GameManager {
 
     this.storage.updateClaim(gameId, comment.authorName, comment.createdAt, now);
     this.storage.upsertParticipant(gameId, comment.authorName, comment.createdAt, true);
+    const row = this.storage.getGame(gameId);
+    const holdSec = row ? Math.round(row.gameDurationMs / 1000) : 60;
     this.storage.addEvent(
       gameId,
       "claim_valid",
       comment.createdAt,
-      `Valid claim from @${comment.authorName}. Timer reset to 60 seconds.`,
+      `Valid claim from @${comment.authorName}. Timer reset to ${holdSec} seconds.`,
       comment.authorName,
     );
     this.storage.addEvent(
@@ -246,7 +247,7 @@ export class GameManager {
       return;
     }
     const now = Date.now();
-    if (now - game.lastClaimAt < this.gameDurationMs) {
+    if (now - game.lastClaimAt < game.gameDurationMs) {
       return;
     }
 
@@ -287,6 +288,7 @@ export class GameManager {
       id: game.id,
       postId,
       status: game.status,
+      gameDurationMs: game.gameDurationMs,
       currentKing: game.currentKing,
       winner: game.winner,
       lastClaimAt: game.lastClaimAt,
@@ -297,7 +299,7 @@ export class GameManager {
           ? 0
           : game.status === "pending_post"
             ? 0
-            : computeTimeLeftSeconds(this.gameDurationMs, now, game.lastClaimAt),
+            : computeTimeLeftSeconds(game.gameDurationMs, now, game.lastClaimAt),
       participants: this.storage.listParticipants(game.id),
       events: this.storage.listEvents(game.id),
     };

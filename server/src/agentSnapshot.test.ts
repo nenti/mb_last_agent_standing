@@ -6,6 +6,7 @@ const baseGame: GameSnapshot = {
   id: "Abcdefghijkl",
   postId: "p1",
   status: "active",
+  gameDurationMs: 60_000,
   currentKing: "alice",
   winner: null,
   lastClaimAt: 1,
@@ -47,6 +48,7 @@ describe("renderGameSnapshotText", () => {
     expect(text).toContain("status: active");
     expect(text).toContain("current_king: alice");
     expect(text).toContain("time_left_seconds: 42");
+    expect(text).toContain("crown_hold_seconds: 60");
     expect(text).toContain("alice: valid=1");
   });
 });

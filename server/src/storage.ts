@@ -10,6 +10,18 @@ export class Storage {
     this.db = new Database(path);
     this.db.pragma("journal_mode = WAL");
     this.initialize();
+    this.migrateGamesTable();
+  }
+
+  private migrateGamesTable(): void {
+    const columns = this.db
+      .prepare("PRAGMA table_info(games)")
+      .all() as { name: string }[];
+    if (!columns.some((c) => c.name === "game_duration_ms")) {
+      this.db.exec(
+        `ALTER TABLE games ADD COLUMN game_duration_ms INTEGER NOT NULL DEFAULT 60000`,
+      );
+    }
   }
 
   private allocateGameId(): string {
@@ -30,6 +42,7 @@ export class Storage {
         id TEXT PRIMARY KEY,
         post_id TEXT NOT NULL,
         status TEXT NOT NULL,
+        game_duration_ms INTEGER NOT NULL DEFAULT 60000,
         current_king TEXT,
         last_claim_at INTEGER,
         winner TEXT,
@@ -59,7 +72,7 @@ export class Storage {
     `);
   }
 
-  createGame(postId: string, now: number): GameRecord {
+  createGame(postId: string, now: number, gameDurationMs: number): GameRecord {
     if (postId.trim() === PENDING_POST_SENTINEL) {
       throw new Error("Invalid post id");
     }
@@ -67,6 +80,7 @@ export class Storage {
       id: this.allocateGameId(),
       postId,
       status: "active",
+      gameDurationMs,
       currentKing: null,
       lastClaimAt: null,
       winner: null,
@@ -77,14 +91,15 @@ export class Storage {
     };
     const stmt = this.db.prepare(`
       INSERT INTO games (
-        id, post_id, status, current_king, last_claim_at, winner,
+        id, post_id, status, game_duration_ms, current_king, last_claim_at, winner,
         started_at, finished_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       game.id,
       game.postId,
       game.status,
+      game.gameDurationMs,
       game.currentKing,
       game.lastClaimAt,
       game.winner,
@@ -96,11 +111,12 @@ export class Storage {
     return game;
   }
 
-  createPendingArena(now: number): GameRecord {
+  createPendingArena(now: number, gameDurationMs: number): GameRecord {
     const game: GameRecord = {
       id: this.allocateGameId(),
       postId: PENDING_POST_SENTINEL,
       status: "pending_post",
+      gameDurationMs,
       currentKing: null,
       lastClaimAt: null,
       winner: null,
@@ -111,14 +127,15 @@ export class Storage {
     };
     const stmt = this.db.prepare(`
       INSERT INTO games (
-        id, post_id, status, current_king, last_claim_at, winner,
+        id, post_id, status, game_duration_ms, current_king, last_claim_at, winner,
         started_at, finished_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       game.id,
       game.postId,
       game.status,
+      game.gameDurationMs,
       game.currentKing,
       game.lastClaimAt,
       game.winner,
@@ -152,6 +169,7 @@ export class Storage {
         id,
         post_id as postId,
         status,
+        game_duration_ms as gameDurationMs,
         current_king as currentKing,
         last_claim_at as lastClaimAt,
         winner,
@@ -171,6 +189,7 @@ export class Storage {
         id,
         post_id as postId,
         status,
+        game_duration_ms as gameDurationMs,
         current_king as currentKing,
         last_claim_at as lastClaimAt,
         winner,
@@ -191,6 +210,7 @@ export class Storage {
         id,
         post_id as postId,
         status,
+        game_duration_ms as gameDurationMs,
         current_king as currentKing,
         last_claim_at as lastClaimAt,
         winner,

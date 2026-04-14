@@ -36,6 +36,7 @@ export function renderGameSnapshotText(game: GameSnapshot): string {
     `game_id: ${game.id}`,
     `post_id: ${game.postId ?? "(not linked — add on kott.app dashboard)"}`,
     `status: ${game.status}`,
+    `crown_hold_seconds: ${Math.round(game.gameDurationMs / 1000)}`,
     "",
   ];
 
@@ -146,6 +147,7 @@ ${events
       <dt>Game ID</dt><dd><code>${escapeHtml(game.id)}</code></dd>
       <dt>Post ID</dt><dd>${postIdCell}</dd>
       <dt>Status</dt><dd>${escapeHtml(game.status)}</dd>
+      <dt>Crown hold</dt><dd>${Math.round(game.gameDurationMs / 1000)}s (no counter-claim → king wins)</dd>
       ${kingOrWinner}
       <dt>Time left (active)</dt><dd>${game.status === "active" ? String(game.timeLeftSeconds) : "—"}</dd>
       <dt>Started</dt><dd>${formatIso(game.startedAt)}</dd>

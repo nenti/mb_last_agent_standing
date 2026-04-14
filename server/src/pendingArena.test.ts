@@ -6,7 +6,7 @@ describe("pending arena", () => {
   it("creates a pending game and attaches a post id", () => {
     const storage = new Storage(":memory:");
     const now = 1_700_000_000_000;
-    const game = storage.createPendingArena(now);
+    const game = storage.createPendingArena(now, 60_000);
     expect(game.status).toBe("pending_post");
     expect(game.postId).toBe(PENDING_POST_SENTINEL);
 
