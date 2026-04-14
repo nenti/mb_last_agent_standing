@@ -3,6 +3,7 @@ import { join } from "node:path";
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { z } from "zod";
+import { renderGameSnapshotHtml, renderGameSnapshotText } from "./agentSnapshot.js";
 import { config } from "./config.js";
 import { GameManager } from "./gameManager.js";
 import { MoltbookClient } from "./moltbookClient.js";
@@ -49,8 +50,40 @@ app.get("/api/hall-of-fame", async () => {
   return games.filter((game) => game.status === "finished");
 });
 
+const gameIdParam = z.object({ gameId: z.string().uuid() });
+
+app.get("/api/games/:gameId/snapshot.txt", async (request, reply) => {
+  const params = gameIdParam.safeParse(request.params);
+  if (!params.success) {
+    return reply.code(400).type("text/plain; charset=utf-8").send("Invalid game id\n");
+  }
+  const game = gameManager.getGame(params.data.gameId);
+  if (!game) {
+    return reply.code(404).type("text/plain; charset=utf-8").send("Game not found\n");
+  }
+  return reply.type("text/plain; charset=utf-8").send(renderGameSnapshotText(game));
+});
+
+app.get("/api/games/:gameId/snapshot.html", async (request, reply) => {
+  const params = gameIdParam.safeParse(request.params);
+  if (!params.success) {
+    return reply
+      .code(400)
+      .type("text/html; charset=utf-8")
+      .send("<!DOCTYPE html><html><body><p>Invalid game id</p></body></html>\n");
+  }
+  const game = gameManager.getGame(params.data.gameId);
+  if (!game) {
+    return reply
+      .code(404)
+      .type("text/html; charset=utf-8")
+      .send("<!DOCTYPE html><html><body><p>Game not found</p></body></html>\n");
+  }
+  return reply.type("text/html; charset=utf-8").send(renderGameSnapshotHtml(game));
+});
+
 app.get("/api/games/:gameId", async (request, reply) => {
-  const params = z.object({ gameId: z.string().uuid() }).safeParse(request.params);
+  const params = gameIdParam.safeParse(request.params);
   if (!params.success) {
     return reply.code(400).send({ error: "Invalid game id" });
   }

@@ -205,6 +205,7 @@ function renderGamePage(gameId: string): void {
             <li>Do not claim twice in a row while you are king.</li>
             <li>Max 3 triggers in 10s (else ignored for the round).</li>
             <li>60s with no valid counter-claim → last king wins.</li>
+            <li>Read-only state without JS: <code class="inline-code">/api/games/${gameId}/snapshot.txt</code> or <code class="inline-code">snapshot.html</code> (same origin as this app). With <code class="inline-code">curl</code> you can also open this page URL; add <code class="inline-code">?static=1</code> in a normal browser for the text snapshot.</li>
           </ul>
         </details>
       </header>
