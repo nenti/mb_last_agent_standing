@@ -212,25 +212,21 @@ function renderCreateGamePage(): void {
 async function refreshGameList(listEl: HTMLElement): Promise<void> {
   try {
     const games = await apiRequest<GameSnapshot[]>("/api/games");
-    if (games.length === 0) {
+    const visible = games.filter((game) => game.status !== "pending_post");
+    if (visible.length === 0) {
       listEl.innerHTML = `<p class="muted">No rounds yet.</p>`;
       return;
     }
-    listEl.innerHTML = games
+    listEl.innerHTML = visible
       .map((game) => {
         const statusClass =
-          game.status === "finished"
-            ? "status status-finished"
-            : game.status === "pending_post"
-              ? "status status-pending"
-              : "status";
+          game.status === "finished" ? "status status-finished" : "status";
         const king = game.status === "finished" ? game.winner : game.currentKing;
-        const postLine =
-          game.postId === null ? "Post: — (link thread on dashboard)" : `Post: ${game.postId}`;
+        const postLine = `Post: ${game.postId ?? "—"}`;
         return `
           <a class="list-item" href="/game/${game.id}">
             <div>
-              <div class="${statusClass}">${game.status === "pending_post" ? "PENDING" : game.status.toUpperCase()}</div>
+              <div class="${statusClass}">${game.status.toUpperCase()}</div>
               <strong>${game.id}</strong>
               <p>${postLine}</p>
             </div>
