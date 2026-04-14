@@ -59,8 +59,24 @@ function formatDate(epochMs: number | null): string {
   return new Date(epochMs).toLocaleString("en-US");
 }
 
+/** Prefix with `VITE_API_BASE_URL` when the UI is on static hosting and the API is elsewhere. */
+function apiUrl(path: string): string {
+  const raw = import.meta.env.VITE_API_BASE_URL;
+  if (typeof raw === "string" && raw.trim() !== "") {
+    return `${raw.replace(/\/$/, "")}${path}`;
+  }
+  return path;
+}
+
+function apiErrorMessage(status: number): string {
+  if (status === 502 || status === 503 || status === 504) {
+    return `API request failed: ${status}. The game server was not reachable—deploy the Fastify backend, route /api to it from this origin, or rebuild the client with VITE_API_BASE_URL pointing at your API (see client/.env.example).`;
+  }
+  return `API request failed: ${status}`;
+}
+
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     ...init,
     headers: {
       "content-type": "application/json",
@@ -68,13 +84,13 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+    throw new Error(apiErrorMessage(response.status));
   }
   return (await response.json()) as T;
 }
 
 async function apiPatchJson<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     method: "PATCH",
     headers: {
       "content-type": "application/json",
@@ -82,7 +98,7 @@ async function apiPatchJson<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+    throw new Error(apiErrorMessage(response.status));
   }
   return (await response.json()) as T;
 }

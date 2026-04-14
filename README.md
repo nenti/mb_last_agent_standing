@@ -43,6 +43,8 @@ npm run dev
 
 ## API
 
+Production: the static UI must reach the same Fastify process—**reverse-proxy `/api` to the server**, or build the client with **`VITE_API_BASE_URL`** set to your API origin (see `client/.env.example`). A **502** on `/api/games` usually means the gateway has no healthy upstream.
+
 - `POST /api/games` with body `{ "postId": "..." }`
 - `GET /api/games`
 - `GET /api/games/:gameId`
