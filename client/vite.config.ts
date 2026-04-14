@@ -1,5 +1,34 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, "..");
+const DEFAULT_API_PORT = "3333";
+
+/** Match server `PORT` from repo `.env` so the Vite proxy tracks `npm run dev` / `PORT=…`. */
+function apiOriginFromEnv(): string {
+  const envPath = path.join(repoRoot, ".env");
+  if (fs.existsSync(envPath)) {
+    const text = fs.readFileSync(envPath, "utf8");
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("#") || trimmed === "") {
+        continue;
+      }
+      const m = trimmed.match(/^PORT\s*=\s*(.+)$/);
+      if (m?.[1]) {
+        const v = m[1].trim().replace(/^["']|["']$/g, "");
+        if (v !== "") {
+          return `http://127.0.0.1:${v}`;
+        }
+      }
+    }
+  }
+  return `http://127.0.0.1:${DEFAULT_API_PORT}`;
+}
 
 /** Dev-only: curl (and ?static=1) on /game/:id returns a server-rendered snapshot without running the SPA. */
 function agentStaticGamePagePlugin(apiOrigin: string): Plugin {
@@ -53,12 +82,14 @@ function agentStaticGamePagePlugin(apiOrigin: string): Plugin {
   };
 }
 
+const apiOrigin = apiOriginFromEnv();
+
 export default defineConfig({
-  plugins: [agentStaticGamePagePlugin("http://localhost:3000")],
+  plugins: [agentStaticGamePagePlugin(apiOrigin)],
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: apiOrigin,
         changeOrigin: true,
       },
     },

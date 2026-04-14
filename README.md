@@ -38,10 +38,10 @@ Runs backend and frontend together:
 npm run dev
 ```
 
-- Backend: `http://localhost:3000`
+- Backend: `http://localhost:3333` by default (`PORT` in `.env`; Vite’s dev proxy reads the same value)
 - Frontend (Vite): `http://localhost:5173`
 
-Use **`npm run dev` from the repository root** so both processes start. If you only run the Vite client (`npm run dev --workspace client`), `/api` requests will fail (often **502**) because nothing listens on port 3000.
+Use **`npm run dev` from the repository root** so both processes start. If you only run the Vite client (`npm run dev --workspace client`), `/api` requests will fail (often **502**) because nothing listens on the API port.
 
 ## API
 

@@ -24,7 +24,7 @@ function readOptionalNumber(name: string, fallback: number): number {
 }
 
 export const config = {
-  port: readOptionalNumber("PORT", 3000),
+  port: readOptionalNumber("PORT", 3333),
   moltbookApiKey: readRequired("MOLTBOOK_API_KEY"),
   pollIntervalMs: readOptionalNumber("MOLTBOOK_POLL_INTERVAL_MS", 10000),
   gameDurationMs: readOptionalNumber("GAME_DURATION_MS", 60000),
