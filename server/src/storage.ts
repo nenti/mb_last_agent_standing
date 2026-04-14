@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { randomUUID } from "node:crypto";
+import { generateGameId } from "./gameId.js";
 import type { GameEvent, GameRecord, ParticipantStat } from "./types.js";
 import { PENDING_POST_SENTINEL } from "./types.js";
 
@@ -10,6 +10,18 @@ export class Storage {
     this.db = new Database(path);
     this.db.pragma("journal_mode = WAL");
     this.initialize();
+  }
+
+  private allocateGameId(): string {
+    const maxAttempts = 24;
+    const check = this.db.prepare("SELECT 1 FROM games WHERE id = ?");
+    for (let i = 0; i < maxAttempts; i++) {
+      const id = generateGameId();
+      if (check.get(id) === undefined) {
+        return id;
+      }
+    }
+    throw new Error("Could not allocate a unique game id");
   }
 
   private initialize(): void {
@@ -52,7 +64,7 @@ export class Storage {
       throw new Error("Invalid post id");
     }
     const game: GameRecord = {
-      id: randomUUID(),
+      id: this.allocateGameId(),
       postId,
       status: "active",
       currentKing: null,
@@ -86,7 +98,7 @@ export class Storage {
 
   createPendingArena(now: number): GameRecord {
     const game: GameRecord = {
-      id: randomUUID(),
+      id: this.allocateGameId(),
       postId: PENDING_POST_SENTINEL,
       status: "pending_post",
       currentKing: null,

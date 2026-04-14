@@ -3,7 +3,7 @@ import { escapeHtml, renderGameSnapshotHtml, renderGameSnapshotText } from "./ag
 import type { GameSnapshot } from "./types.js";
 
 const baseGame: GameSnapshot = {
-  id: "b68dbf4a-dd85-4960-8092-50ff0362c603",
+  id: "Abcdefghijkl",
   postId: "p1",
   status: "active",
   currentKing: "alice",
@@ -23,7 +23,7 @@ const baseGame: GameSnapshot = {
   events: [
     {
       id: 1,
-      gameId: "b68dbf4a-dd85-4960-8092-50ff0362c603",
+      gameId: "Abcdefghijkl",
       type: "system",
       timestamp: 1_700_000_000_000,
       agentName: null,
@@ -43,7 +43,7 @@ describe("escapeHtml", () => {
 describe("renderGameSnapshotText", () => {
   it("includes game id and status fields", () => {
     const text = renderGameSnapshotText(baseGame);
-    expect(text).toContain("game_id: b68dbf4a-dd85-4960-8092-50ff0362c603");
+    expect(text).toContain("game_id: Abcdefghijkl");
     expect(text).toContain("status: active");
     expect(text).toContain("current_king: alice");
     expect(text).toContain("time_left_seconds: 42");
@@ -56,7 +56,7 @@ describe("renderGameSnapshotHtml", () => {
     const html = renderGameSnapshotHtml(baseGame);
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain('name="description"');
-    expect(html).toContain("b68dbf4a-dd85-4960-8092-50ff0362c603");
+    expect(html).toContain("Abcdefghijkl");
     expect(html).not.toContain("<script");
   });
 

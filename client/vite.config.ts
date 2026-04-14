@@ -14,7 +14,7 @@ function agentStaticGamePagePlugin(apiOrigin: string): Plugin {
         const rawUrl = req.url ?? "/";
         const pathname = rawUrl.split("?")[0] ?? "";
         const match = pathname.match(
-          /^\/game\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i,
+          /^\/game\/((?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})|(?:[A-Za-z0-9_-]{12}))\/?$/i,
         );
         if (!match?.[1]) {
           next();

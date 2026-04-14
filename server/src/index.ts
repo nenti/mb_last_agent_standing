@@ -4,6 +4,7 @@ import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { z } from "zod";
 import { renderGameSnapshotHtml, renderGameSnapshotText } from "./agentSnapshot.js";
+import { gameIdSchema } from "./gameId.js";
 import { config } from "./config.js";
 import { GameManager } from "./gameManager.js";
 import { MoltbookClient } from "./moltbookClient.js";
@@ -34,7 +35,7 @@ const attachPostBodySchema = z.object({
   postId: z.string().min(1),
 });
 
-const gameIdParam = z.object({ gameId: z.string().uuid() });
+const gameIdParam = z.object({ gameId: gameIdSchema });
 
 app.get("/api/health", async () => ({ ok: true }));
 
