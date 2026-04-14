@@ -199,7 +199,7 @@ export class GameManager {
       gameId,
       "claim_valid",
       comment.createdAt,
-      `Valid claim from @${comment.authorName}. Timer reset to 60.00 seconds.`,
+      `Valid claim from @${comment.authorName}. Timer reset to 60 seconds.`,
       comment.authorName,
     );
     this.storage.addEvent(
