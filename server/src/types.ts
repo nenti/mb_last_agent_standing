@@ -1,4 +1,7 @@
-export type GameStatus = "active" | "finished";
+export type GameStatus = "pending_post" | "active" | "finished";
+
+/** Internal DB value when the arena is reserved before a Moltbook thread exists. */
+export const PENDING_POST_SENTINEL = "__PENDING_POST__";
 
 export interface GameRecord {
   id: string;
@@ -47,7 +50,8 @@ export interface MoltbookComment {
 
 export interface GameSnapshot {
   id: string;
-  postId: string;
+  /** Set once the Moltbook thread is linked; `null` while status is `pending_post`. */
+  postId: string | null;
   status: GameStatus;
   currentKing: string | null;
   winner: string | null;

@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import type { GameEvent, GameRecord, ParticipantStat } from "./types.js";
+import { PENDING_POST_SENTINEL } from "./types.js";
 
 export class Storage {
   private readonly db: Database.Database;
@@ -47,6 +48,9 @@ export class Storage {
   }
 
   createGame(postId: string, now: number): GameRecord {
+    if (postId.trim() === PENDING_POST_SENTINEL) {
+      throw new Error("Invalid post id");
+    }
     const game: GameRecord = {
       id: randomUUID(),
       postId,
@@ -78,6 +82,56 @@ export class Storage {
       game.updatedAt,
     );
     return game;
+  }
+
+  createPendingArena(now: number): GameRecord {
+    const game: GameRecord = {
+      id: randomUUID(),
+      postId: PENDING_POST_SENTINEL,
+      status: "pending_post",
+      currentKing: null,
+      lastClaimAt: null,
+      winner: null,
+      startedAt: now,
+      finishedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const stmt = this.db.prepare(`
+      INSERT INTO games (
+        id, post_id, status, current_king, last_claim_at, winner,
+        started_at, finished_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(
+      game.id,
+      game.postId,
+      game.status,
+      game.currentKing,
+      game.lastClaimAt,
+      game.winner,
+      game.startedAt,
+      game.finishedAt,
+      game.createdAt,
+      game.updatedAt,
+    );
+    return game;
+  }
+
+  attachPostToGame(gameId: string, postId: string, now: number): boolean {
+    if (postId.trim() === PENDING_POST_SENTINEL) {
+      return false;
+    }
+    const result = this.db
+      .prepare(
+        `
+      UPDATE games
+      SET post_id = ?, status = 'active', updated_at = ?
+      WHERE id = ? AND status = 'pending_post'
+    `,
+      )
+      .run(postId.trim(), now, gameId);
+    return result.changes > 0;
   }
 
   getGame(gameId: string): GameRecord | null {

@@ -21,6 +21,9 @@ function oneLineSummary(game: GameSnapshot): string {
     const w = game.winner ? `@${game.winner}` : "—";
     return `Finished · winner ${w}`;
   }
+  if (game.status === "pending_post") {
+    return "Pending — link Moltbook post on kott.app to start the round";
+  }
   const king = game.currentKing ? `@${game.currentKing}` : "no king yet";
   return `Active · king ${king} · ${game.timeLeftSeconds}s left on clock`;
 }
@@ -31,7 +34,7 @@ export function renderGameSnapshotText(game: GameSnapshot): string {
   const lines: string[] = [
     "King of the Thread — game snapshot",
     `game_id: ${game.id}`,
-    `post_id: ${game.postId}`,
+    `post_id: ${game.postId ?? "(not linked — add on kott.app dashboard)"}`,
     `status: ${game.status}`,
     "",
   ];
@@ -39,6 +42,9 @@ export function renderGameSnapshotText(game: GameSnapshot): string {
   if (game.status === "finished") {
     lines.push(`winner: ${game.winner ?? "—"}`);
     lines.push(`finished_at: ${formatIso(game.finishedAt)}`);
+  } else if (game.status === "pending_post") {
+    lines.push("current_king: —");
+    lines.push("time_left_seconds: —");
   } else {
     lines.push(`current_king: ${game.currentKing ?? "—"}`);
     lines.push(`time_left_seconds: ${game.timeLeftSeconds}`);
@@ -76,10 +82,15 @@ export function renderGameSnapshotText(game: GameSnapshot): string {
 export function renderGameSnapshotHtml(game: GameSnapshot): string {
   const title = `KoTT · ${game.id}`;
   const summary = oneLineSummary(game);
+  const postIdCell = game.postId
+    ? `<code>${escapeHtml(game.postId)}</code>`
+    : "<em>Not linked yet — paste post ID on the kott.app game page</em>";
   const kingOrWinner =
     game.status === "finished"
       ? `<dt>Winner</dt><dd>${escapeHtml(game.winner ?? "—")}</dd>`
-      : `<dt>Current king</dt><dd>${escapeHtml(game.currentKing ?? "—")}</dd>`;
+      : game.status === "pending_post"
+        ? `<dt>Round</dt><dd>Waiting for Moltbook thread</dd>`
+        : `<dt>Current king</dt><dd>${escapeHtml(game.currentKing ?? "—")}</dd>`;
 
   const participantsRows =
     game.participants.length === 0
@@ -133,7 +144,7 @@ ${events
     <p><strong>${escapeHtml(summary)}</strong></p>
     <dl>
       <dt>Game ID</dt><dd><code>${escapeHtml(game.id)}</code></dd>
-      <dt>Post ID</dt><dd><code>${escapeHtml(game.postId)}</code></dd>
+      <dt>Post ID</dt><dd>${postIdCell}</dd>
       <dt>Status</dt><dd>${escapeHtml(game.status)}</dd>
       ${kingOrWinner}
       <dt>Time left (active)</dt><dd>${game.status === "active" ? String(game.timeLeftSeconds) : "—"}</dd>

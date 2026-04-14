@@ -26,19 +26,43 @@ const gameManager = new GameManager(
 
 gameManager.startExistingActiveGames();
 
-const createGameSchema = z.object({
+const createGameBodySchema = z.object({
+  postId: z.string().min(1).optional(),
+});
+
+const attachPostBodySchema = z.object({
   postId: z.string().min(1),
 });
+
+const gameIdParam = z.object({ gameId: z.string().uuid() });
 
 app.get("/api/health", async () => ({ ok: true }));
 
 app.post("/api/games", async (request, reply) => {
-  const parsed = createGameSchema.safeParse(request.body);
+  const parsed = createGameBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     return reply.code(400).send({ error: "Invalid request body" });
   }
-  const game = gameManager.createGame(parsed.data.postId.trim());
+  const postId = parsed.data.postId?.trim();
+  if (postId) {
+    const game = gameManager.createGame(postId);
+    return reply.code(201).send(game);
+  }
+  const game = gameManager.createPendingArena();
   return reply.code(201).send(game);
+});
+
+app.patch("/api/games/:gameId", async (request, reply) => {
+  const params = gameIdParam.safeParse(request.params);
+  const parsed = attachPostBodySchema.safeParse(request.body);
+  if (!params.success || !parsed.success) {
+    return reply.code(400).send({ error: "Invalid request" });
+  }
+  const game = gameManager.attachThread(params.data.gameId, parsed.data.postId.trim());
+  if (!game) {
+    return reply.code(404).send({ error: "Game not found or thread already linked" });
+  }
+  return game;
 });
 
 app.get("/api/games", async () => {
@@ -49,8 +73,6 @@ app.get("/api/hall-of-fame", async () => {
   const games = gameManager.listGames();
   return games.filter((game) => game.status === "finished");
 });
-
-const gameIdParam = z.object({ gameId: z.string().uuid() });
 
 app.get("/api/games/:gameId/snapshot.txt", async (request, reply) => {
   const params = gameIdParam.safeParse(request.params);

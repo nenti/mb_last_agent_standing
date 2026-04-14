@@ -97,6 +97,28 @@ button {
   cursor: pointer;
 }
 
+.btn-secondary {
+  background: #3f3f46;
+  color: #fafafa;
+}
+
+.btn-secondary:hover {
+  background: #52525b;
+}
+
+.panel-action .btn-secondary {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.panel-action-or {
+  margin: 14px 0 6px;
+  font-size: 0.85rem;
+  text-align: center;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .error {
   color: #f87171;
   min-height: 1.2rem;
@@ -135,6 +157,10 @@ button {
 
 .status-finished {
   color: #facc15;
+}
+
+.status-pending {
+  color: #38bdf8;
 }
 
 .back-link {
@@ -588,6 +614,53 @@ td {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.82em;
   color: #fde047;
+}
+
+.pending-panel {
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.pending-share {
+  margin: 16px 0;
+}
+
+.pending-share-label {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.pending-share-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.pending-share-row .btn-secondary {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 10px 16px;
+}
+
+.arena-url-line {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  padding: 10px 12px;
+  background: #09090b;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 10px;
+  font-size: 0.82rem;
+  word-break: break-all;
+  color: #e2e8f0;
+}
+
+.game-live-region--hidden {
+  display: none;
 }
 
 @media (min-width: 960px) {

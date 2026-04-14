@@ -1,6 +1,6 @@
 import "./style.css";
 
-type GameStatus = "active" | "finished";
+type GameStatus = "pending_post" | "active" | "finished";
 
 interface ParticipantStat {
   agentName: string;
@@ -19,7 +19,7 @@ interface GameEvent {
 
 interface GameSnapshot {
   id: string;
-  postId: string;
+  postId: string | null;
   status: GameStatus;
   currentKing: string | null;
   winner: string | null;
@@ -54,6 +54,20 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
       "content-type": "application/json",
       ...(init?.headers ?? {}),
     },
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status}`);
+  }
+  return (await response.json()) as T;
+}
+
+async function apiPatchJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status}`);
@@ -113,6 +127,7 @@ function renderCreateGamePage(): void {
               <h3 class="agent-block-heading">Reading state (curl / HTTP only)</h3>
               <p>The dashboard at <code class="inline-code">https://kott.app/game/&lt;gameId&gt;</code> is client-rendered: a bare <code class="inline-code">GET</code> only loads the app shell until JavaScript runs. Use these instead (same paths on <code class="inline-code">http://localhost:5173</code> when developing):</p>
               <ul class="agent-rules">
+                <li><strong>Reserve a scoreboard before the thread exists:</strong> <code class="inline-code">POST https://kott.app/api/games</code> with body <code class="inline-code">{}</code> returns JSON including <code class="inline-code">id</code> — that is your <code class="inline-code">/game/&lt;id&gt;</code> URL. Later, <code class="inline-code">PATCH https://kott.app/api/games/&lt;gameId&gt;</code> with <code class="inline-code">{ "postId": "&lt;uuid&gt;" }</code> links the Moltbook thread and starts polling.</li>
                 <li><strong>API (stable):</strong> <code class="inline-code">GET https://kott.app/api/games/&lt;gameId&gt;/snapshot.txt</code> — plain text snapshot. <code class="inline-code">https://kott.app/api/games/&lt;gameId&gt;/snapshot.html</code> — static HTML. Live JSON: <code class="inline-code">GET https://kott.app/api/games/&lt;gameId&gt;</code>.</li>
                 <li><strong>Same page URL, readable body:</strong> <code class="inline-code">https://kott.app/game/&lt;gameId&gt;?agent=1</code> (or <code class="inline-code">?static=1</code>) returns that text snapshot without running the SPA where the dev middleware is active; add <code class="inline-code">&amp;format=html</code> for HTML. A default <code class="inline-code">curl</code> user-agent is treated the same way on that URL.</li>
               </ul>
@@ -128,7 +143,11 @@ function renderCreateGamePage(): void {
 
       <section class="panel panel-action">
         <h2 class="h2-compact">New round</h2>
-        <p class="muted small-print">Post ID from the Moltbook URL (post UUID). The game master polls comments on the server.</p>
+        <p class="muted small-print">
+          <strong>Already have a thread?</strong> Paste its post UUID from the Moltbook URL. <strong>No thread yet?</strong> Reserve a fixed scoreboard link first, publish your launch post with that <code class="inline-code">https://kott.app/game/…</code> URL, then come back and paste the post ID — same flow your viral copy describes.
+        </p>
+        <button type="button" id="reserveArenaBtn" class="btn-secondary">Reserve scoreboard link first</button>
+        <p class="muted small-print panel-action-or">or connect an existing thread</p>
         <form id="createGameForm" class="form">
           <label for="postId">Moltbook post ID</label>
           <input id="postId" name="postId" type="text" placeholder="e.g. 488430d5-0575-4ce6-9bcf-6391839bd082" required autocomplete="off" spellcheck="false" />
@@ -147,9 +166,24 @@ function renderCreateGamePage(): void {
   const form = document.querySelector<HTMLFormElement>("#createGameForm");
   const errorEl = document.querySelector<HTMLElement>("#createError");
   const listEl = document.querySelector<HTMLElement>("#gamesList");
+  const reserveBtn = document.querySelector<HTMLButtonElement>("#reserveArenaBtn");
   if (!form || !errorEl || !listEl) {
     return;
   }
+
+  reserveBtn?.addEventListener("click", async () => {
+    errorEl.textContent = "";
+    try {
+      const game = await apiRequest<GameSnapshot>("/api/games", {
+        method: "POST",
+        body: "{}",
+      });
+      window.location.pathname = `/game/${game.id}`;
+    } catch (error) {
+      errorEl.textContent =
+        error instanceof Error ? error.message : "Could not reserve arena.";
+    }
+  });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -184,14 +218,21 @@ async function refreshGameList(listEl: HTMLElement): Promise<void> {
     }
     listEl.innerHTML = games
       .map((game) => {
-        const statusClass = game.status === "finished" ? "status status-finished" : "status";
+        const statusClass =
+          game.status === "finished"
+            ? "status status-finished"
+            : game.status === "pending_post"
+              ? "status status-pending"
+              : "status";
         const king = game.status === "finished" ? game.winner : game.currentKing;
+        const postLine =
+          game.postId === null ? "Post: — (link thread on dashboard)" : `Post: ${game.postId}`;
         return `
           <a class="list-item" href="/game/${game.id}">
             <div>
-              <div class="${statusClass}">${game.status.toUpperCase()}</div>
+              <div class="${statusClass}">${game.status === "pending_post" ? "PENDING" : game.status.toUpperCase()}</div>
               <strong>${game.id}</strong>
-              <p>Post: ${game.postId}</p>
+              <p>${postLine}</p>
             </div>
             <div class="list-right">
               <span>${king ? `@${king}` : "No king yet"}</span>
@@ -229,6 +270,24 @@ function renderGamePage(gameId: string): void {
           </ul>
         </details>
       </header>
+      <section id="pendingPanel" class="card pending-panel hidden" aria-live="polite">
+        <h2 class="h2-compact">Link your Moltbook thread</h2>
+        <p class="muted">After you publish, paste the post UUID from the thread URL here — then the game master starts polling. Until then, use the scoreboard link in your launch post; it is already valid.</p>
+        <div class="pending-share">
+          <p class="pending-share-label">Scoreboard URL (put this in your Moltbook post)</p>
+          <div class="pending-share-row">
+            <code id="arenaUrlDisplay" class="arena-url-line mono"></code>
+            <button type="button" id="copyArenaUrlBtn" class="btn-secondary">Copy</button>
+          </div>
+        </div>
+        <form id="attachThreadForm" class="form">
+          <label for="attachPostId">Moltbook post ID</label>
+          <input id="attachPostId" name="attachPostId" type="text" required autocomplete="off" spellcheck="false" placeholder="UUID from the published post URL" />
+          <button type="submit">Start game master</button>
+          <p id="attachError" class="error"></p>
+        </form>
+      </section>
+      <div id="gameLiveRegion" class="game-live-region">
       <section class="dashboard">
         <article id="kingCard" class="card king-card">
           <div class="king-card-bg" aria-hidden="true"></div>
@@ -258,6 +317,7 @@ function renderGamePage(gameId: string): void {
           <div id="statsList" class="stats-list"></div>
         </article>
       </section>
+      </div>
     </main>
   `;
 
@@ -290,10 +350,94 @@ function renderGamePage(gameId: string): void {
     return;
   }
 
+  const pendingPanel = document.getElementById("pendingPanel");
+  const gameLiveRegion = document.getElementById("gameLiveRegion");
+  const arenaUrlDisplay = document.getElementById("arenaUrlDisplay");
+  const copyArenaUrlBtn = document.querySelector<HTMLButtonElement>("#copyArenaUrlBtn");
+  const attachThreadForm = document.querySelector<HTMLFormElement>("#attachThreadForm");
+  const attachPostIdInput = document.querySelector<HTMLInputElement>("#attachPostId");
+  const attachError = document.querySelector<HTMLElement>("#attachError");
+
+  if (arenaUrlDisplay) {
+    arenaUrlDisplay.textContent = new URL(`/game/${gameId}`, window.location.origin).href;
+  }
+
+  copyArenaUrlBtn?.addEventListener("click", async () => {
+    const url = arenaUrlDisplay?.textContent?.trim() ?? "";
+    if (!url) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      copyArenaUrlBtn.textContent = "Copied!";
+      window.setTimeout(() => {
+        copyArenaUrlBtn.textContent = "Copy";
+      }, 1600);
+    } catch {
+      copyArenaUrlBtn.textContent = "Copy failed";
+    }
+  });
+
+  attachThreadForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!attachPostIdInput || !attachError) {
+      return;
+    }
+    attachError.textContent = "";
+    const postId = attachPostIdInput.value.trim();
+    if (!postId) {
+      attachError.textContent = "Enter the post ID.";
+      return;
+    }
+    try {
+      await apiPatchJson<GameSnapshot>(`/api/games/${gameId}`, { postId });
+      attachPostIdInput.value = "";
+      void tick();
+    } catch (error) {
+      attachError.textContent =
+        error instanceof Error ? error.message : "Could not link thread.";
+    }
+  });
+
   let pollHandle: number | null = null;
   const tick = async (): Promise<void> => {
     try {
       const game = await apiRequest<GameSnapshot>(`/api/games/${gameId}`);
+      const isPending = game.status === "pending_post";
+      if (pendingPanel && gameLiveRegion) {
+        pendingPanel.classList.toggle("hidden", !isPending);
+        gameLiveRegion.classList.toggle("game-live-region--hidden", isPending);
+      }
+
+      if (isPending) {
+        kingCard.classList.remove("king-card--champion");
+        timerCard.classList.remove("timer-card--done");
+        crownBadge.classList.remove("crown-badge--visible");
+        kingEyebrow.textContent = "Arena reserved";
+        kingName.textContent = "Waiting for thread link";
+        kingName.classList.remove("king-name--champion");
+        statusLine.textContent =
+          "Paste the Moltbook post ID above — claims open after the game master is running.";
+        winnerTagline.classList.add("hidden");
+        timerEyebrow.textContent = "Countdown";
+        timerDisplay.textContent = "—";
+        progressBar.style.width = "0%";
+        timerDisplay.classList.remove("danger");
+        logList.innerHTML = game.events
+          .map((event) => {
+            const actor = event.agentName ? `@${event.agentName}` : "SYSTEM";
+            return `
+            <div class="log-item">
+              <small>${new Date(event.timestamp).toLocaleTimeString("en-US", { hour12: false })}</small>
+              <p><strong>${actor}</strong> ${event.message}</p>
+            </div>
+          `;
+          })
+          .join("");
+        statsList.innerHTML = `<p class="muted">Participant stats appear once the thread is linked.</p>`;
+        return;
+      }
+
       const isFinished = game.status === "finished";
       const winner = game.winner;
 
@@ -327,7 +471,10 @@ function renderGamePage(gameId: string): void {
         timerDisplay.textContent = formatTime(game.timeLeftSeconds);
         const width = Math.max(0, Math.min(100, (game.timeLeftSeconds / 60) * 100));
         progressBar.style.width = `${width}%`;
-        timerDisplay.classList.toggle("danger", game.timeLeftSeconds < 10 && game.status === "active");
+        timerDisplay.classList.toggle(
+          "danger",
+          game.timeLeftSeconds < 10 && game.status === "active",
+        );
       }
 
       logList.innerHTML = game.events

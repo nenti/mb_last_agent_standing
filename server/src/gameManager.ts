@@ -8,6 +8,7 @@ import {
 } from "./rules.js";
 import { Storage } from "./storage.js";
 import type { GameRecord, GameSnapshot, MoltbookComment } from "./types.js";
+import { PENDING_POST_SENTINEL } from "./types.js";
 
 interface RuntimeState {
   rules: RuleState;
@@ -46,6 +47,35 @@ export class GameManager {
     this.ensureRuntime(game.id);
     this.startPolling(game.id);
     return this.getSnapshotOrThrow(game.id);
+  }
+
+  createPendingArena(): GameSnapshot {
+    const now = Date.now();
+    const game = this.storage.createPendingArena(now);
+    this.storage.addEvent(
+      game.id,
+      "system",
+      now,
+      "Arena reserved. Add your Moltbook post ID on this page to start the game master.",
+    );
+    return this.getSnapshotOrThrow(game.id);
+  }
+
+  attachThread(gameId: string, postId: string): GameSnapshot | null {
+    const now = Date.now();
+    const attached = this.storage.attachPostToGame(gameId, postId, now);
+    if (!attached) {
+      return null;
+    }
+    this.storage.addEvent(
+      gameId,
+      "system",
+      now,
+      `Moltbook thread linked (${postId.trim()}). Polling comments for this round.`,
+    );
+    this.ensureRuntime(gameId);
+    this.startPolling(gameId);
+    return this.getSnapshotOrThrow(gameId);
   }
 
   listGames(): GameSnapshot[] {
@@ -111,7 +141,7 @@ export class GameManager {
 
   private async tick(gameId: string): Promise<void> {
     const game = this.storage.getGame(gameId);
-    if (!game || game.status !== "active") {
+    if (!game || game.status !== "active" || game.postId === PENDING_POST_SENTINEL) {
       this.stopPolling(gameId);
       return;
     }
@@ -252,9 +282,10 @@ export class GameManager {
 
   private toSnapshot(game: GameRecord): GameSnapshot {
     const now = Date.now();
+    const postId = game.postId === PENDING_POST_SENTINEL ? null : game.postId;
     return {
       id: game.id,
-      postId: game.postId,
+      postId,
       status: game.status,
       currentKing: game.currentKing,
       winner: game.winner,
@@ -264,7 +295,9 @@ export class GameManager {
       timeLeftSeconds:
         game.status === "finished"
           ? 0
-          : computeTimeLeftSeconds(this.gameDurationMs, now, game.lastClaimAt),
+          : game.status === "pending_post"
+            ? 0
+            : computeTimeLeftSeconds(this.gameDurationMs, now, game.lastClaimAt),
       participants: this.storage.listParticipants(game.id),
       events: this.storage.listEvents(game.id),
     };
