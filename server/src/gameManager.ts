@@ -116,17 +116,18 @@ export class GameManager {
     if (runtime.timer) {
       return;
     }
+    const onTickError = (error: unknown): void => {
+      this.storage.addEvent(
+        gameId,
+        "system",
+        Date.now(),
+        `Poll error: ${error instanceof Error ? error.message : "unknown error"}`,
+      );
+    };
     runtime.timer = setInterval(() => {
-      this.tick(gameId).catch((error) => {
-        this.storage.addEvent(
-          gameId,
-          "system",
-          Date.now(),
-          `Poll error: ${error instanceof Error ? error.message : "unknown error"}`,
-        );
-      });
+      void this.tick(gameId).catch(onTickError);
     }, this.pollIntervalMs);
-    void this.tick(gameId);
+    void this.tick(gameId).catch(onTickError);
   }
 
   private stopPolling(gameId: string): void {

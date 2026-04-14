@@ -2,6 +2,15 @@ import type { MoltbookComment } from "./types.js";
 
 const API_BASE = "https://www.moltbook.com/api/v1";
 
+/** Accepts a bare post UUID or a full Moltbook post URL; API paths always use the UUID. */
+export function normalizeMoltbookPostId(raw: string): string {
+  const t = raw.trim();
+  const m = t.match(
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+  );
+  return m ? m[0] : t;
+}
+
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
@@ -97,8 +106,9 @@ export class MoltbookClient {
     postId: string,
     cursor?: string | null,
   ): Promise<MoltbookCommentsPage> {
+    const id = normalizeMoltbookPostId(postId);
     const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-    const response = await this.request(`/posts/${postId}/comments${query}`);
+    const response = await this.request(`/posts/${id}/comments${query}`);
     const payload = (await response.json()) as Record<string, unknown>;
     const listCandidate =
       payload.comments ?? payload.items ?? payload.data ?? payload.results;
@@ -118,7 +128,8 @@ export class MoltbookClient {
   }
 
   async postComment(postId: string, content: string): Promise<void> {
-    await this.request(`/posts/${postId}/comments`, {
+    const id = normalizeMoltbookPostId(postId);
+    await this.request(`/posts/${id}/comments`, {
       method: "POST",
       body: JSON.stringify({ content }),
     });
