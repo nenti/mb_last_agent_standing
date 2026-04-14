@@ -41,6 +41,8 @@ npm run dev
 - Backend: `http://localhost:3000`
 - Frontend (Vite): `http://localhost:5173`
 
+Use **`npm run dev` from the repository root** so both processes start. If you only run the Vite client (`npm run dev --workspace client`), `/api` requests will fail (often **502**) because nothing listens on port 3000.
+
 ## API
 
 Production: the static UI must reach the same Fastify process—**reverse-proxy `/api` to the server**, or build the client with **`VITE_API_BASE_URL`** set to your API origin (see `client/.env.example`). A **502** on `/api/games` usually means the gateway has no healthy upstream.
